@@ -58,11 +58,11 @@ object WidgetUtils {
         views.setTextViewText(R.id.widget_day_counter, "Day $dayNumber")
 
         // --- Weather-aware background ---
-        val weatherJson = WeatherManager.getWeather(context)
-        val weatherColors = WeatherManager.getWeatherColors(weatherJson)
-        val temp = WeatherManager.getTemperature(weatherJson)
-        val weatherEmoji = WeatherManager.getWeatherEmoji(weatherJson)
-        val weatherText = WeatherManager.getWeatherText(weatherJson)
+        val weather = WeatherManager.getWeather(context)
+        val weatherColors = WeatherManager.getWeatherColors(context)
+        val temp = weather.temp
+        val weatherEmoji = WeatherManager.getWeatherType(context).emoji
+        val weatherText = weather.condition
 
         // Set background gradient (start color as solid fallback)
         views.setInt(R.id.widget_root, "setBackgroundColor", weatherColors.backgroundStart)
