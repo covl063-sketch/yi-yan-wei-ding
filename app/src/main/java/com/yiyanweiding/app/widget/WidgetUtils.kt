@@ -75,8 +75,10 @@ object WidgetUtils {
         )
         views.setInt(R.id.widget_card, "setBackgroundColor", cardBgColor)
 
-        // --- Weather info line ---
-        if (layoutId != R.layout.widget_small) {
+        // --- Weather info line (all sizes) ---
+        if (layoutId == R.layout.widget_small) {
+            views.setTextViewText(R.id.widget_weather_info, weatherEmoji)
+        } else {
             views.setTextViewText(R.id.widget_weather_info, "$weatherEmoji $weatherText $temp")
         }
 
@@ -113,6 +115,7 @@ object WidgetUtils {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_favorite_btn, favPendingIntent)
+            views.setBoolean(R.id.widget_favorite_btn, "setClickable", true)
 
             val copyIntent = Intent(context, providerClass).apply {
                 action = ACTION_COPY_QUOTE
@@ -124,6 +127,7 @@ object WidgetUtils {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_copy_btn, copyPendingIntent)
+            views.setBoolean(R.id.widget_copy_btn, "setClickable", true)
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
