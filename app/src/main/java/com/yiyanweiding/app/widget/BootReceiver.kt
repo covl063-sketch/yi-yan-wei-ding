@@ -2,6 +2,7 @@ package com.yiyanweiding.app.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import com.yiyanweiding.app.model.QuoteDatabase
@@ -28,26 +29,20 @@ class BootReceiver : BroadcastReceiver() {
                 val appWidgetManager = AppWidgetManager.getInstance(context)
 
                 // Update all widget instances across all three sizes
-                for (providerClass in listOf(
-                    SmallWidgetProvider::class.java,
-                    MediumWidgetProvider::class.java,
-                    LargeWidgetProvider::class.java
+                for ((providerClass, layoutId) in listOf(
+                    SmallWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_small,
+                    MediumWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_medium,
+                    LargeWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_large
                 )) {
                     val ids = appWidgetManager.getAppWidgetIds(
-                        android.content.ComponentName(context, providerClass)
+                        ComponentName(context, providerClass)
                     )
-                    val layoutId = when (providerClass) {
-                        SmallWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_small
-                        MediumWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_medium
-                        LargeWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_large
-                        else -> com.yiyanweiding.app.R.layout.widget_small
-                    }
                     for (appWidgetId in ids) {
-                        WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, layoutId, providerClass)
+                        WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, layoutId, providerClass)
                     }
                 }
-
-                WidgetUtils.scheduleNextRefresh(context)
+                
+                WidgetUtils.scheduleNextRefresh(context, SmallWidgetProvider::class.java)
             }
         }
     }

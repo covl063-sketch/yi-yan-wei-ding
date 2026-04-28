@@ -2,8 +2,14 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp">
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_bg_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="weather" />
 
     <LinearLayout
         android:id="@+id/widget_card"
@@ -11,7 +17,9 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:background="@drawable/widget_bg_round">
+        android:background="@drawable/widget_bg_round"
+        android:layout_margin="16dp"
+        android:padding="16dp">
 
         <TextView
             android:id="@+id/widget_quote_text"
@@ -23,8 +31,7 @@
             android:ellipsize="end"
             android:textSize="22sp"
             android:textColor="#FFFFFF"
-            android:lineSpacingExtra="8dp"
-            android:padding="12dp" />
+            android:lineSpacingExtra="8dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -32,15 +39,7 @@
             android:gravity="center"
             android:orientation="horizontal"
             android:paddingTop="6dp"
-            android:paddingBottom="4dp">
-
-            <ImageView
-                android:id="@+id/widget_favorite_btn"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_favorite_border"
-                android:contentDescription="收藏"
-                android:layout_marginEnd="16dp" />
+            android:paddingBottom="8dp">
 
             <TextView
                 android:id="@+id/widget_weather_info"
@@ -48,7 +47,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
                 android:textColor="#B3FFFFFF"
-                android:layout_marginEnd="12dp" />
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/widget_day_counter"
@@ -56,14 +55,29 @@
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
                 android:textColor="#B3FFFFFF"
-                android:layout_marginEnd="16dp" />
+                android:paddingStart="8dp" />
 
-            <ImageView
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="match_parent" />
+
+            <ImageButton
+                android:id="@+id/widget_favorite_btn"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/btn_star"
+                android:background="@null"
+                android:scaleType="fitCenter"
+                android:contentDescription="favorite" />
+
+            <ImageButton
                 android:id="@+id/widget_copy_btn"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_copy"
-                android:contentDescription="复制" />
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:background="@null"
+                android:scaleType="fitCenter"
+                android:contentDescription="copy" />
 
         </LinearLayout>
 

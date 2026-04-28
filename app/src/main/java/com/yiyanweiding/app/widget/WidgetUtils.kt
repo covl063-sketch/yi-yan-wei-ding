@@ -6,181 +6,193 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.os.Build
 import android.widget.RemoteViews
 import com.yiyanweiding.app.R
-import com.yiyanweiding.app.model.ColorUtils
-import com.yiyanweiding.app.model.FavoritesManager
 import com.yiyanweiding.app.model.QuoteDatabase
 import com.yiyanweiding.app.model.WeatherManager
-import java.util.Calendar
+import com.yiyanweiding.app.model.ColorUtils
+import com.yiyanweiding.app.model.WeatherBackgroundRenderer
+import java.util.*
 
 object WidgetUtils {
 
-    const val ACTION_NEXT_QUOTE = "com.yiyanweiding.action.NEXT_QUOTE"
-    const val ACTION_TOGGLE_FAVORITE = "com.yiyanweiding.action.TOGGLE_FAVORITE"
-    const val ACTION_COPY_QUOTE = "com.yiyanweiding.action.COPY_QUOTE"
-    const val EXTRA_QUOTE_TEXT = "extra_quote_text"
-    const val EXTRA_QUOTE_FROM = "extra_quote_from"
-    const val EXTRA_QUOTE_CATEGORY = "extra_quote_category"
-    const val PREFS_NAME = "yiyan_widget_state"
-    const val KEY_CURRENT_INDEX = "current_index_"
+    private const val PREFS_NAME = "widget_prefs"
+    private const val PREFS_CITY = "weather_city"
+    private const val DAILY_REFRESH_HOUR = 0 // UTC 0 = BJT 8
 
+    private const val ACTION_NEXT_QUOTE = "com.yiyanweiding.app.NEXT_QUOTE"
+    private const val ACTION_TOGGLE_FAVORITE = "com.yiyanweiding.app.TOGGLE_FAVORITE"
+    private const val ACTION_COPY_QUOTE = "com.yiyanweiding.app.COPY_QUOTE"
+    const val ACTION_REFRESH_WEATHER = "com.yiyanweiding.app.REFRESH_WEATHER"
+    const val EXTRA_CITY = "weather_city"
+
+    /**
+     * Update a single widget instance with weather-aware background and quote content.
+     */
     fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        advanceToNext: Boolean,
         layoutId: Int,
         providerClass: Class<*>
     ) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var currentIndex = prefs.getInt(KEY_CURRENT_INDEX + appWidgetId, -1)
-
-        if (currentIndex < 0 || advanceToNext) {
-            if (currentIndex < 0) {
-                val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-                currentIndex = today % QuoteDatabase.size()
-            } else {
-                currentIndex = (currentIndex + 1) % QuoteDatabase.size()
-            }
-            prefs.edit().putInt(KEY_CURRENT_INDEX + appWidgetId, currentIndex).apply()
-        }
-
-        val quote = QuoteDatabase.getQuoteByIndex(currentIndex)
-        val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-        val dayNumber = dayOfYear
-
         val views = RemoteViews(context.packageName, layoutId)
+        val quote = QuoteDatabase.getDailyAQuote(context)
 
-        // --- Quote text ---
-        views.setTextViewText(R.id.widget_quote_text, quote.text)
-        views.setTextViewText(R.id.widget_day_counter, "Day $dayNumber")
-
-        // --- Weather-aware background ---
-        val weather = WeatherManager.getWeather(context)
-        val weatherColors = WeatherManager.getWeatherColors(context)
-        val temp = weather.temp
-        val weatherEmoji = WeatherManager.getWeatherType(context).emoji
-        val weatherText = weather.condition
-
-        // Set background gradient (start color as solid fallback)
-        views.setInt(R.id.widget_root, "setBackgroundColor", weatherColors.backgroundStart)
-        // Set card tint overlay (semi-transparent white)
-        val cardBgColor = Color.argb(
-            Color.alpha(weatherColors.cardTint),
-            Color.red(weatherColors.backgroundEnd),
-            Color.green(weatherColors.backgroundEnd),
-            Color.blue(weatherColors.backgroundEnd)
-        )
-        views.setInt(R.id.widget_card, "setBackgroundColor", cardBgColor)
-
-        // --- Weather info line (all sizes) ---
-        if (layoutId == R.layout.widget_small) {
-            views.setTextViewText(R.id.widget_weather_info, weatherEmoji)
-        } else {
-            views.setTextViewText(R.id.widget_weather_info, "$weatherEmoji $weatherText $temp")
+        // Sync user city from widget prefs to WeatherManager
+        val city = getCityRaw(context)
+        if (city.isNotEmpty() && city != "auto") {
+            WeatherManager.setCity(context, city)
         }
 
-        // --- Next quote click ---
+        // Get weather data
+        val weather = WeatherManager.getWeather(context)
+        val weatherType = WeatherManager.getWeatherType(context)
+
+        // Set quote text
+        if (quote != null) {
+            views.setTextViewText(R.id.widget_quote_text, quote.text)
+        } else {
+            views.setTextViewText(R.id.widget_quote_text, "一言为定")
+        }
+
+        // Weather info display on all sizes
+        val weatherDisplay = "${weatherType.emoji} ${weather.temp}"
+        views.setTextViewText(R.id.widget_weather_info, weatherDisplay)
+        views.setViewVisibility(R.id.widget_weather_info, android.view.View.VISIBLE)
+
+        // Day counter
+        views.setTextViewText(R.id.widget_day_counter, "Day ${QuoteDatabase.getDayCount(context)}")
+
+        // Weather background rendering (Bitmap)
+        try {
+            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 200)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 100)
+            val density = context.resources.displayMetrics.density
+            val isNight = isNightTime()
+
+            val bitmap = WeatherBackgroundRenderer.render(minWidth, minHeight, weatherType, isNight, density)
+            views.setImageViewBitmap(R.id.widget_bg_image, bitmap)
+        } catch (_: Exception) {
+            // leave transparent
+        }
+
+        // Card background color from WeatherManager
+        val colors = WeatherManager.getWeatherColors(context)
+        views.setInt(R.id.widget_card, "setBackgroundColor", colors.cardTint)
+
+        // --- Click actions ---
+
+        // Root / quote tap -> next quote
         val nextIntent = Intent(context, providerClass).apply {
             action = ACTION_NEXT_QUOTE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
-        val nextPendingIntent = PendingIntent.getBroadcast(
+        val nextPI = PendingIntent.getBroadcast(
             context, appWidgetId, nextIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            else PendingIntent.FLAG_UPDATE_CURRENT
         )
-        views.setOnClickPendingIntent(R.id.widget_quote_text, nextPendingIntent)
-        views.setOnClickPendingIntent(R.id.widget_root, nextPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_quote_text, nextPI)
+        views.setOnClickPendingIntent(R.id.widget_root, nextPI)
 
-        // --- Large widget features ---
-        if (layoutId == R.layout.widget_large) {
-            val isFav = FavoritesManager.isFavorite(quote.text)
-            views.setImageViewResource(
-                R.id.widget_favorite_btn,
-                if (isFav) R.drawable.ic_favorite_filled
-                else R.drawable.ic_favorite_border
-            )
-
-            val favIntent = Intent(context, providerClass).apply {
-                action = ACTION_TOGGLE_FAVORITE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra(EXTRA_QUOTE_TEXT, quote.text)
-                putExtra(EXTRA_QUOTE_FROM, quote.from)
-                putExtra(EXTRA_QUOTE_CATEGORY, quote.category)
-            }
-            val favPendingIntent = PendingIntent.getBroadcast(
-                context, appWidgetId + 1000, favIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_favorite_btn, favPendingIntent)
-            views.setBoolean(R.id.widget_favorite_btn, "setClickable", true)
-
-            val copyIntent = Intent(context, providerClass).apply {
-                action = ACTION_COPY_QUOTE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra(EXTRA_QUOTE_TEXT, quote.text)
-            }
-            val copyPendingIntent = PendingIntent.getBroadcast(
-                context, appWidgetId + 2000, copyIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_copy_btn, copyPendingIntent)
-            views.setBoolean(R.id.widget_copy_btn, "setClickable", true)
+        // Favorite button (large only)
+        val favIntent = Intent(context, providerClass).apply {
+            action = ACTION_TOGGLE_FAVORITE
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
+        val favPI = PendingIntent.getBroadcast(
+            context, appWidgetId + 1000, favIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        views.setOnClickPendingIntent(R.id.widget_favorite_btn, favPI)
+
+        // Copy button (large only)
+        val copyIntent = Intent(context, providerClass).apply {
+            action = ACTION_COPY_QUOTE
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        }
+        val copyPI = PendingIntent.getBroadcast(
+            context, appWidgetId + 2000, copyIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        views.setOnClickPendingIntent(R.id.widget_copy_btn, copyPI)
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
-    fun updateAllWidgets(context: Context) {
+    private fun isNightTime(): Boolean {
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        return hour < 6 || hour >= 18
+    }
+
+    /**
+     * Schedule daily refresh at configured hour.
+     */
+    fun scheduleNextRefresh(context: Context, providerClass: Class<*>) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, providerClass).apply {
+            action = ACTION_NEXT_QUOTE
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        cal.set(Calendar.HOUR_OF_DAY, DAILY_REFRESH_HOUR)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        if (cal.timeInMillis <= System.currentTimeMillis()) {
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+        }
+    }
+
+    /**
+     * Update all widget instances of a given provider type.
+     */
+    fun updateAllWidgets(context: Context, providerClass: Class<*>, layoutId: Int) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
-        val providers = listOf(
-            SmallWidgetProvider::class.java to R.layout.widget_small,
-            MediumWidgetProvider::class.java to R.layout.widget_medium,
-            LargeWidgetProvider::class.java to R.layout.widget_large
-        )
-        for ((providerClass, layoutId) in providers) {
-            val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, providerClass))
-            for (id in ids) {
-                updateWidget(context, appWidgetManager, id, false, layoutId, providerClass)
-            }
+        val provider = ComponentName(context, providerClass)
+        val ids = appWidgetManager.getAppWidgetIds(provider)
+
+        for (appWidgetId in ids) {
+            updateWidget(context, appWidgetManager, appWidgetId, layoutId, providerClass)
         }
     }
 
-    fun scheduleNextRefresh(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, BootReceiver::class.java).apply {
-            action = Intent.ACTION_DATE_CHANGED
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    // --- City preference (user-facing, from MainActivity) ---
 
-        val calendar = Calendar.getInstance().apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 5)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        alarmManager.setInexactRepeating(
-            AlarmManager.RTC, calendar.timeInMillis,
-            AlarmManager.INTERVAL_DAY, pendingIntent
-        )
+    fun getCity(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(PREFS_CITY, "") ?: ""
     }
 
-    fun cancelScheduledRefresh(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, BootReceiver::class.java).apply {
-            action = Intent.ACTION_DATE_CHANGED
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager.cancel(pendingIntent)
+    fun setCity(context: Context, city: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(PREFS_CITY, city)
+            .apply()
+    }
+
+    private fun getCityRaw(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(PREFS_CITY, "auto") ?: "auto"
     }
 }
