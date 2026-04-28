@@ -19,7 +19,11 @@ import java.util.Calendar
  * AppWidgetProvider for YiYanWeiDing (一言为定).
  * Handles three widget sizes: small (2x2), medium (4x2), large (4x4).
  */
-class YiYanWidgetProvider : AppWidgetProvider() {
+abstract class YiYanWidgetProvider : AppWidgetProvider() {
+    /**
+     * Each subclass provides its own default layout id.
+     */
+    abstract fun getLayoutId(minWidth: Int): Int
 
     override fun onUpdate(
         context: Context,
@@ -116,16 +120,12 @@ class YiYanWidgetProvider : AppWidgetProvider() {
 
             val quote = QuoteDatabase.getQuoteByIndex(currentIndex)
             val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-            val dayNumber = dayOfYear // Simple day counter "Day X"
+            val dayNumber = dayOfYear // Simple day counter \"Day X\"
 
-            // Determine widget size from options
+            // Determine widget size from options — but this is just for fallback
             val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
-            val layoutId = when {
-                minWidth >= 250 -> R.layout.widget_large   // 4x4
-                minWidth >= 180 -> R.layout.widget_medium  // 4x2
-                else -> R.layout.widget_small              // 2x2
-            }
+            val layoutId = getLayoutId(minWidth)
 
             val views = RemoteViews(context.packageName, layoutId)
 

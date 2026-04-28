@@ -26,9 +26,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Widget Provider — Small 2x2 -->
+        <!-- Widget Providers — three sizes -->
         <receiver
-            android:name=".widget.YiYanWidgetProvider"
+            android:name=".widget.SmallWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -38,7 +38,35 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MediumWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.yiyanweiding.action.NEXT_QUOTE" />
+                <action android:name="com.yiyanweiding.action.TOGGLE_FAVORITE" />
+                <action android:name="com.yiyanweiding.action.COPY_QUOTE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_medium" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LargeWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.yiyanweiding.action.NEXT_QUOTE" />
+                <action android:name="com.yiyanweiding.action.TOGGLE_FAVORITE" />
+                <action android:name="com.yiyanweiding.action.COPY_QUOTE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_large" />
         </receiver>
 
         <!-- Boot receiver to restart alarms -->
