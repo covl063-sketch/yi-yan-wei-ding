@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">一言为定</string>
+    <string name="widget_name">一言为定</string>
+    <string name="widget_description">每日一言，一言为定</string>
+    <string name="favorites_title">我的收藏</string>
+    <string name="settings_title">设置</string>
+    <string name="no_favorites">暂无收藏</string>
+    <string name="tap_to_copy">点击复制</string>
+    <string name="copied">已复制到剪贴板</string>
+    <string name="favorites_empty_hint">点击大号小组件上的❤️收藏名言</string>
+    <string name="day_prefix">Day</string>
+</resources>
