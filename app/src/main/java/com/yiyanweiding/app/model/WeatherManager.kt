@@ -10,24 +10,26 @@ import java.net.URL
 import java.util.Calendar
 
 /**
- * Manages weather data fetching from QWeather (和风天气) API.
+ * Manages weather data fetching from OpenWeatherMap API.
+ * Uses OpenWeatherMap OneCall-like Current Weather endpoint.
  * Caches results and refreshes hourly.
  */
 object WeatherManager {
 
-    // TODO: Replace with your own QWeather API key from https://dev.qweather.com
-    private const val API_KEY = "f5f689df49a940ea8c7d457b386a6010"
+    // OpenWeatherMap API key — get yours free at https://openweathermap.org/
+    private const val API_KEY = "3076ca88b66b429e70c2a4cac5f173e7"
 
-    // Auto city lookup — using known LocationIDs for common cities (from QWeather docs)
-    // Default: Beijing (101010100). Free tier requires a fixed LocationID.
-    private const val DEFAULT_LOCATION_ID = "101010100"
+    // Current weather endpoint (free tier)
+    private const val WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn"
 
-    // Weather API — now endpoint (free tier)
-    private const val WEATHER_URL = "https://devapi.qweather.com/v7/weather/now?location=%s&key=%s"
+    // Default city (Beijing). Change to your city (in Chinese or English).
+    // free tier limitation: needs a fixed city name
+    private const val DEFAULT_CITY = "Beijing"
 
     private const val PREFS_NAME = "yiyan_weather_cache"
     private const val KEY_CACHE = "weather_json"
     private const val KEY_TIME = "weather_cache_time"
+    private const val KEY_CITY = "weather_city"
     private const val CACHE_TTL_MS = 60 * 60 * 1000L // 1 hour
 
     // Weather types mapped to color schemes
@@ -88,8 +90,11 @@ object WeatherManager {
 
     private fun fetchWeather(context: Context): JSONObject? {
         try {
-            // Use fixed LocationID (free tier limitation — no auto IP support)
-            val url = URL(String.format(WEATHER_URL, DEFAULT_LOCATION_ID, API_KEY))
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val city = prefs.getString(KEY_CITY, DEFAULT_CITY) ?: DEFAULT_CITY
+
+            val urlStr = String.format(WEATHER_URL, java.net.URLEncoder.encode(city, "UTF-8"), API_KEY)
+            val url = URL(urlStr)
 
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 5000
@@ -102,121 +107,113 @@ object WeatherManager {
             conn.disconnect()
 
             val json = JSONObject(response)
-            return if (json.optString("code") == "200") json.getJSONObject("now") else null
+            return if (json.optInt("cod") == 200) json else null
         } catch (e: Exception) {
             e.printStackTrace()
             return null
         }
     }
 
-    /**
-     * Returns the LocationID for the current city.
-     * Free tier limitation: hardcoded to a known city. Change this to match your location.
-     * Common LocationIDs: 北京=101010100, 上海=101020100, 广州=101280101, 深圳=101280601, 杭州=101210101
-     */
-    fun getCityId(): String = DEFAULT_LOCATION_ID
-
     fun getWeatherType(weatherJson: JSONObject?): WeatherType {
         if (weatherJson == null) return WeatherType.UNKNOWN
-        val icon = weatherJson.optString("icon", "999")
-        val text = weatherJson.optString("text", "")
 
-        // QWeather icon code approach
-        return when {
-            icon in arrayOf("100", "150") -> WeatherType.SUNNY
-            icon in arrayOf("101", "102", "103") -> WeatherType.CLOUDY
-            icon in arrayOf("104") -> WeatherType.OVERCAST
-            icon in arrayOf("300", "301", "302") -> WeatherType.LIGHT_RAIN
-            icon in arrayOf("303", "304") -> WeatherType.MODERATE_RAIN
-            icon in arrayOf("305", "306", "307") -> WeatherType.HEAVY_RAIN
-            icon in arrayOf("308", "309", "310", "311", "312", "313") -> WeatherType.RAIN
-            icon in arrayOf("400", "401", "402", "403") -> WeatherType.SNOW
-            icon in arrayOf("500", "501", "502", "503", "504", "507", "508") -> WeatherType.FOG
-            icon in arrayOf("200", "201", "202", "203", "204", "205", "206",
-                "207", "208", "209", "210", "211", "212", "213") -> WeatherType.THUNDERSTORM
-            else -> {
-                // Fallback to text matching
-                when {
-                    text.contains("晴") -> WeatherType.SUNNY
-                    text.contains("云") -> WeatherType.CLOUDY
-                    text.contains("阴") -> WeatherType.OVERCAST
-                    text.contains("雨") -> if (text.contains("雷") || text.contains("暴"))
-                        WeatherType.THUNDERSTORM else WeatherType.RAIN
-                    text.contains("雪") -> WeatherType.SNOW
-                    text.contains("雾") || text.contains("霾") -> WeatherType.FOG
-                    else -> WeatherType.UNKNOWN
-                }
-            }
-        }.also { type ->
-            // Check if it's nighttime (icon 150+)
-            if (type == WeatherType.SUNNY && icon == "150") return WeatherType.NIGHT
+        // Check if it's night using sys.sunset
+        val sys = weatherJson.optJSONObject("sys")
+        val sunrise = sys?.optLong("sunrise", 0L) ?: 0L
+        val sunset = sys?.optLong("sunset", 0L) ?: 0L
+        val now = System.currentTimeMillis() / 1000
+        val isNight = sunset > 0 && (now < sunrise || now > sunset)
+
+        // OpenWeatherMap weather ID codes
+        val weatherArr = weatherJson.optJSONArray("weather")
+        val id = if (weatherArr != null && weatherArr.length() > 0)
+            weatherArr.getJSONObject(0).optInt("id", 800) else 800
+        val main = if (weatherArr != null && weatherArr.length() > 0)
+            weatherArr.getJSONObject(0).optString("main", "") else ""
+
+        val type = when {
+            id == 800 -> WeatherType.SUNNY
+            id in 801..802 -> WeatherType.CLOUDY
+            id in 803..804 -> WeatherType.OVERCAST
+            id in 300..321 -> WeatherType.LIGHT_RAIN
+            id in 500..501 -> WeatherType.LIGHT_RAIN
+            id in 502..504 -> WeatherType.MODERATE_RAIN
+            id in 520..531 -> WeatherType.HEAVY_RAIN
+            id in 200..232 -> WeatherType.THUNDERSTORM
+            id in 600..622 -> WeatherType.SNOW
+            id in 700..781 -> WeatherType.FOG
+            main.contains("Cloud", ignoreCase = true) -> WeatherType.CLOUDY
+            main.contains("Rain", ignoreCase = true) -> WeatherType.RAIN
+            main.contains("Drizzle", ignoreCase = true) -> WeatherType.LIGHT_RAIN
+            main.contains("Snow", ignoreCase = true) -> WeatherType.SNOW
+            main.contains("Thunderstorm", ignoreCase = true) -> WeatherType.THUNDERSTORM
+            main.contains("Fog", ignoreCase = true) || main.contains("Mist", ignoreCase = true) -> WeatherType.FOG
+            main.contains("Haze", ignoreCase = true) -> WeatherType.FOG
+            else -> WeatherType.UNKNOWN
         }
+
+        return if (isNight && type == WeatherType.SUNNY) WeatherType.NIGHT else type
     }
 
     fun getWeatherColors(weatherJson: JSONObject?): WeatherColors {
         val type = getWeatherType(weatherJson)
-        val isNight = weatherJson?.optString("icon", "999")?.toIntOrNull()?.let { it >= 150 } == true
 
-        return when {
-            // Night — dark with deep blue/purple
-            isNight || type == WeatherType.NIGHT -> WeatherColors(
+        return when (type) {
+            WeatherType.NIGHT -> WeatherColors(
                 backgroundStart = 0xFF0B0D2E.toInt(),
                 backgroundEnd = 0xFF1A1040.toInt(),
                 cardTint = 0x15FFFFFF.toInt(),
                 accentColor = 0xFF7C4DFF.toInt()
             )
-            // Sunny — warm golden
-            type == WeatherType.SUNNY -> WeatherColors(
+            WeatherType.SUNNY -> WeatherColors(
                 backgroundStart = 0xFFFF6B35.toInt(),
                 backgroundEnd = 0xFFFFA726.toInt(),
                 cardTint = 0x15FFFFFF.toInt(),
                 accentColor = 0xFFFFD54F.toInt()
             )
-            // Cloudy — soft grey-blue
-            type == WeatherType.CLOUDY -> WeatherColors(
+            WeatherType.CLOUDY -> WeatherColors(
                 backgroundStart = 0xFF5C7A9A.toInt(),
                 backgroundEnd = 0xFF8EABCA.toInt(),
                 cardTint = 0x15FFFFFF.toInt(),
                 accentColor = 0xFFB0BEC5.toInt()
             )
-            // Overcast — muted grey
-            type == WeatherType.OVERCAST -> WeatherColors(
+            WeatherType.OVERCAST -> WeatherColors(
                 backgroundStart = 0xFF4A4A4A.toInt(),
                 backgroundEnd = 0xFF707070.toInt(),
                 cardTint = 0x10FFFFFF.toInt(),
                 accentColor = 0xFF9E9E9E.toInt()
             )
-            // Rain — deep blue
-            type in listOf(WeatherType.LIGHT_RAIN, WeatherType.MODERATE_RAIN, WeatherType.HEAVY_RAIN, WeatherType.RAIN) -> WeatherColors(
+            in listOf(WeatherType.LIGHT_RAIN, WeatherType.MODERATE_RAIN, WeatherType.HEAVY_RAIN, WeatherType.RAIN) -> WeatherColors(
                 backgroundStart = 0xFF1A237E.toInt(),
                 backgroundEnd = 0xFF455A64.toInt(),
                 cardTint = 0x20FFFFFF.toInt(),
                 accentColor = 0xFF64B5F6.toInt()
             )
-            // Thunderstorm — dark purple
-            type == WeatherType.THUNDERSTORM -> WeatherColors(
+            WeatherType.THUNDERSTORM -> WeatherColors(
                 backgroundStart = 0xFF1A0033.toInt(),
                 backgroundEnd = 0xFF311B92.toInt(),
                 cardTint = 0x20FFFFFF.toInt(),
                 accentColor = 0xFFE040FB.toInt()
             )
-            // Snow — light frost
-            type == WeatherType.SNOW -> WeatherColors(
+            WeatherType.SNOW -> WeatherColors(
                 backgroundStart = 0xFF37474F.toInt(),
                 backgroundEnd = 0xFF607D8B.toInt(),
                 cardTint = 0x30FFFFFF.toInt(),
                 accentColor = 0xFF90CAF9.toInt()
             )
-            // Fog — hazy grey
-            type == WeatherType.FOG -> WeatherColors(
+            WeatherType.FOG -> WeatherColors(
                 backgroundStart = 0xFF3E4A59.toInt(),
                 backgroundEnd = 0xFF6B7B8D.toInt(),
                 cardTint = 0x20FFFFFF.toInt(),
                 accentColor = 0xFFB0BEC5.toInt()
             )
-            // Default / Unknown
+            WeatherType.WINDY -> WeatherColors(
+                backgroundStart = 0xFF2C3E50.toInt(),
+                backgroundEnd = 0xFF546E7A.toInt(),
+                cardTint = 0x15FFFFFF.toInt(),
+                accentColor = 0xFF80DEEA.toInt()
+            )
             else -> {
-                // Fallback to day-of-year seed
                 val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
                 val colors = ColorUtils.getGradientColors(dayOfYear)
                 WeatherColors(
@@ -231,8 +228,9 @@ object WeatherManager {
 
     fun getTemperature(weatherJson: JSONObject?): String {
         if (weatherJson == null) return "--°"
-        val temp = weatherJson.optString("temp", "--")
-        return "${temp}°"
+        val main = weatherJson.optJSONObject("main")
+        val temp = main?.optDouble("temp", 0.0) ?: return "--°"
+        return "${temp.toInt()}°"
     }
 
     fun getWeatherEmoji(weatherJson: JSONObject?): String {
@@ -241,6 +239,30 @@ object WeatherManager {
 
     fun getWeatherText(weatherJson: JSONObject?): String {
         if (weatherJson == null) return ""
-        return weatherJson.optString("text", "")
+        val weatherArr = weatherJson.optJSONArray("weather")
+        if (weatherArr != null && weatherArr.length() > 0) {
+            return weatherArr.getJSONObject(0).optString("description", "")
+        }
+        return ""
+    }
+
+    /**
+     * Returns the display name of the current city.
+     */
+    fun getCityName(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CITY, DEFAULT_CITY) ?: DEFAULT_CITY
+    }
+
+    /**
+     * Sets a custom city. Next weather fetch will use this city.
+     */
+    fun setCity(context: Context, city: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CITY, city)
+            .putLong(KEY_TIME, 0L) // Invalidate cache
+            .apply()
+        cachedWeather = null // Force re-fetch
     }
 }
