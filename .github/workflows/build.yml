@@ -36,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: yiyan-weiding-release
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/**/*.apk
           retention-days: 30
 
       - name: Create Release
