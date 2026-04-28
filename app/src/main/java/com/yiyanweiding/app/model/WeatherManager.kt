@@ -17,7 +17,7 @@ import java.util.Calendar
 object WeatherManager {
 
     // OpenWeatherMap API key — get yours free at https://openweathermap.org/
-    private const val API_KEY = "3076ca88b66b429e70c2a4cac5f173e7"
+    private const val API_KEY = "32fdc4a23695a52733a0afea37a444ef"
 
     // Current weather endpoint (free tier)
     private const val WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn"
