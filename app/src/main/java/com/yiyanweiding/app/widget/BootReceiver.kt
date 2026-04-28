@@ -17,6 +17,13 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_DATE_CHANGED -> {
                 QuoteDatabase.init(context)
 
+                // Prime weather cache in background
+                try {
+                    android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute {
+                        WeatherManager.getWeather(context)
+                    }
+                } catch (_: Exception) {}
+
                 val appWidgetManager = AppWidgetManager.getInstance(context)
 
                 // Update all widget instances across all three sizes

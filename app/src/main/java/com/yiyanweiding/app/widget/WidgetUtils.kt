@@ -6,11 +6,13 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.yiyanweiding.app.R
 import com.yiyanweiding.app.model.ColorUtils
 import com.yiyanweiding.app.model.FavoritesManager
 import com.yiyanweiding.app.model.QuoteDatabase
+import com.yiyanweiding.app.model.WeatherManager
 import java.util.Calendar
 
 object WidgetUtils {
@@ -51,13 +53,34 @@ object WidgetUtils {
 
         val views = RemoteViews(context.packageName, layoutId)
 
+        // --- Quote text ---
         views.setTextViewText(R.id.widget_quote_text, quote.text)
         views.setTextViewText(R.id.widget_day_counter, "Day $dayNumber")
 
-        val bgColor = ColorUtils.getDominantColor(dayOfYear)
-        views.setInt(R.id.widget_root, "setBackgroundColor", bgColor)
+        // --- Weather-aware background ---
+        val weatherJson = WeatherManager.getWeather(context)
+        val weatherColors = WeatherManager.getWeatherColors(weatherJson)
+        val temp = WeatherManager.getTemperature(weatherJson)
+        val weatherEmoji = WeatherManager.getWeatherEmoji(weatherJson)
+        val weatherText = WeatherManager.getWeatherText(weatherJson)
 
-        // Next quote click — route to THIS provider
+        // Set background gradient (start color as solid fallback)
+        views.setInt(R.id.widget_root, "setBackgroundColor", weatherColors.backgroundStart)
+        // Set card tint overlay (semi-transparent white)
+        val cardBgColor = Color.argb(
+            Color.alpha(weatherColors.cardTint),
+            Color.red(weatherColors.backgroundEnd),
+            Color.green(weatherColors.backgroundEnd),
+            Color.blue(weatherColors.backgroundEnd)
+        )
+        views.setInt(R.id.widget_card, "setBackgroundColor", cardBgColor)
+
+        // --- Weather info line ---
+        if (layoutId != R.layout.widget_small) {
+            views.setTextViewText(R.id.widget_weather_info, "$weatherEmoji $weatherText $temp")
+        }
+
+        // --- Next quote click ---
         val nextIntent = Intent(context, providerClass).apply {
             action = ACTION_NEXT_QUOTE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -69,6 +92,7 @@ object WidgetUtils {
         views.setOnClickPendingIntent(R.id.widget_quote_text, nextPendingIntent)
         views.setOnClickPendingIntent(R.id.widget_root, nextPendingIntent)
 
+        // --- Large widget features ---
         if (layoutId == R.layout.widget_large) {
             val isFav = FavoritesManager.isFavorite(quote.text)
             views.setImageViewResource(

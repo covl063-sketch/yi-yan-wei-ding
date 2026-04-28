@@ -18,6 +18,13 @@ abstract class YiYanWidgetProvider(
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        // Prime weather cache in background
+        try {
+            android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute {
+                com.yiyanweiding.app.model.WeatherManager.getWeather(context)
+            }
+        } catch (_: Exception) {}
+
         for (appWidgetId in appWidgetIds) {
             WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId, this@YiYanWidgetProvider::class.java)
         }
