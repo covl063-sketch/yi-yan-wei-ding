@@ -19,7 +19,7 @@ abstract class YiYanWidgetProvider(
         appWidgetIds: IntArray
     ) {
         for (appWidgetId in appWidgetIds) {
-            WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId)
+            WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId, this@YiYanWidgetProvider::class.java)
         }
         WidgetUtils.scheduleNextRefresh(context)
     }
@@ -34,7 +34,7 @@ abstract class YiYanWidgetProvider(
                 )
                 if (id != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val mgr = AppWidgetManager.getInstance(context)
-                    WidgetUtils.updateWidget(context, mgr, id, true, defaultLayoutId)
+                    WidgetUtils.updateWidget(context, mgr, id, true, defaultLayoutId, this.javaClass)
                 }
             }
             WidgetUtils.ACTION_TOGGLE_FAVORITE -> {
@@ -46,7 +46,7 @@ abstract class YiYanWidgetProvider(
                 com.yiyanweiding.app.model.FavoritesManager.toggleFavorite(quote)
                 if (id != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val mgr = AppWidgetManager.getInstance(context)
-                    WidgetUtils.updateWidget(context, mgr, id, false, defaultLayoutId)
+                    WidgetUtils.updateWidget(context, mgr, id, false, defaultLayoutId, this.javaClass)
                 }
             }
             WidgetUtils.ACTION_COPY_QUOTE -> {

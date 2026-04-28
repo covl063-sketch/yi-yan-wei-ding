@@ -13,9 +13,6 @@ import com.yiyanweiding.app.model.FavoritesManager
 import com.yiyanweiding.app.model.QuoteDatabase
 import java.util.Calendar
 
-/**
- * Shared utility functions for all widget providers.
- */
 object WidgetUtils {
 
     const val ACTION_NEXT_QUOTE = "com.yiyanweiding.action.NEXT_QUOTE"
@@ -32,7 +29,8 @@ object WidgetUtils {
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
         advanceToNext: Boolean,
-        layoutId: Int
+        layoutId: Int,
+        providerClass: Class<*>
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         var currentIndex = prefs.getInt(KEY_CURRENT_INDEX + appWidgetId, -1)
@@ -59,8 +57,8 @@ object WidgetUtils {
         val bgColor = ColorUtils.getDominantColor(dayOfYear)
         views.setInt(R.id.widget_root, "setBackgroundColor", bgColor)
 
-        // Next quote click
-        val nextIntent = Intent(context, SmallWidgetProvider::class.java).apply {
+        // Next quote click — route to THIS provider
+        val nextIntent = Intent(context, providerClass).apply {
             action = ACTION_NEXT_QUOTE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
@@ -79,7 +77,7 @@ object WidgetUtils {
                 else R.drawable.ic_favorite_border
             )
 
-            val favIntent = Intent(context, SmallWidgetProvider::class.java).apply {
+            val favIntent = Intent(context, providerClass).apply {
                 action = ACTION_TOGGLE_FAVORITE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 putExtra(EXTRA_QUOTE_TEXT, quote.text)
@@ -92,7 +90,7 @@ object WidgetUtils {
             )
             views.setOnClickPendingIntent(R.id.widget_favorite_btn, favPendingIntent)
 
-            val copyIntent = Intent(context, SmallWidgetProvider::class.java).apply {
+            val copyIntent = Intent(context, providerClass).apply {
                 action = ACTION_COPY_QUOTE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 putExtra(EXTRA_QUOTE_TEXT, quote.text)
@@ -107,16 +105,17 @@ object WidgetUtils {
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
-    fun updateAllWidgets(context: Context, layoutId: Int) {
+    fun updateAllWidgets(context: Context) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
-        for (providerClass in listOf(
-            SmallWidgetProvider::class.java,
-            MediumWidgetProvider::class.java,
-            LargeWidgetProvider::class.java
-        )) {
+        val providers = listOf(
+            SmallWidgetProvider::class.java to R.layout.widget_small,
+            MediumWidgetProvider::class.java to R.layout.widget_medium,
+            LargeWidgetProvider::class.java to R.layout.widget_large
+        )
+        for ((providerClass, layoutId) in providers) {
             val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, providerClass))
             for (id in ids) {
-                updateWidget(context, appWidgetManager, id, false, layoutId)
+                updateWidget(context, appWidgetManager, id, false, layoutId, providerClass)
             }
         }
     }

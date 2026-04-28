@@ -35,7 +35,7 @@ class BootReceiver : BroadcastReceiver() {
                         else -> com.yiyanweiding.app.R.layout.widget_small
                     }
                     for (appWidgetId in ids) {
-                        WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, layoutId)
+                        WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, layoutId, providerClass)
                     }
                 }
 
