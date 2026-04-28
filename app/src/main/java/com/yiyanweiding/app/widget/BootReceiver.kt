@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.yiyanweiding.app.model.QuoteDatabase
-import java.util.Calendar
 
 /**
  * Receives BOOT_COMPLETED and DATE_CHANGED broadcasts to refresh widgets.
@@ -16,22 +15,31 @@ class BootReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_DATE_CHANGED -> {
-                // Re-initialize database just in case
                 QuoteDatabase.init(context)
 
-                // Update all widgets
                 val appWidgetManager = AppWidgetManager.getInstance(context)
-                val appWidgetIds = appWidgetManager.getAppWidgetIds(
-                    android.content.ComponentName(context, YiYanWidgetProvider::class.java)
-                )
-                for (appWidgetId in appWidgetIds) {
-                    YiYanWidgetProvider.updateWidget(
-                        context, appWidgetManager, appWidgetId, false
+
+                // Update all widget instances across all three sizes
+                for (providerClass in listOf(
+                    SmallWidgetProvider::class.java,
+                    MediumWidgetProvider::class.java,
+                    LargeWidgetProvider::class.java
+                )) {
+                    val ids = appWidgetManager.getAppWidgetIds(
+                        android.content.ComponentName(context, providerClass)
                     )
+                    val layoutId = when (providerClass) {
+                        SmallWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_small
+                        MediumWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_medium
+                        LargeWidgetProvider::class.java -> com.yiyanweiding.app.R.layout.widget_large
+                        else -> com.yiyanweiding.app.R.layout.widget_small
+                    }
+                    for (appWidgetId in ids) {
+                        WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, layoutId)
+                    }
                 }
 
-                // Re-schedule daily alarm
-                YiYanWidgetProvider.scheduleNextRefresh(context)
+                WidgetUtils.scheduleNextRefresh(context)
             }
         }
     }

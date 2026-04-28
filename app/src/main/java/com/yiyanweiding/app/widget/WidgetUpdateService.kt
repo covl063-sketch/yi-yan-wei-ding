@@ -2,6 +2,7 @@ package com.yiyanweiding.app.widget
 
 import android.app.IntentService
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 
 /**
@@ -12,11 +13,16 @@ class WidgetUpdateService : IntentService("WidgetUpdateService") {
     override fun onHandleIntent(intent: Intent?) {
         if (intent == null) return
         val appWidgetManager = AppWidgetManager.getInstance(this)
-        val appWidgetIds = appWidgetManager.getAppWidgetIds(
-            android.content.ComponentName(this, YiYanWidgetProvider::class.java)
-        )
-        for (appWidgetId in appWidgetIds) {
-            YiYanWidgetProvider.updateWidget(this, appWidgetManager, appWidgetId, false)
+
+        for ((providerClass, layoutId) in listOf(
+            SmallWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_small,
+            MediumWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_medium,
+            LargeWidgetProvider::class.java to com.yiyanweiding.app.R.layout.widget_large
+        )) {
+            val ids = appWidgetManager.getAppWidgetIds(ComponentName(this, providerClass))
+            for (widgetId in ids) {
+                WidgetUtils.updateWidget(this, appWidgetManager, widgetId, false, layoutId)
+            }
         }
     }
 }

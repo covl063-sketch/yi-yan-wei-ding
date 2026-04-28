@@ -1,17 +1,9 @@
 package com.yiyanweiding.app.widget
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.widget.RemoteViews
-import com.yiyanweiding.app.R
-import com.yiyanweiding.app.model.ColorUtils
-import com.yiyanweiding.app.model.FavoritesManager
-import com.yiyanweiding.app.model.QuoteDatabase
-import java.util.Calendar
 
 /**
  * AppWidgetProvider for YiYanWeiDing (一言为定).
@@ -27,43 +19,40 @@ abstract class YiYanWidgetProvider(
         appWidgetIds: IntArray
     ) {
         for (appWidgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId)
+            WidgetUtils.updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId)
         }
-        scheduleNextRefresh(context)
+        WidgetUtils.scheduleNextRefresh(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_NEXT_QUOTE -> {
-                val appWidgetId = intent.getIntExtra(
+            WidgetUtils.ACTION_NEXT_QUOTE -> {
+                val id = intent.getIntExtra(
                     AppWidgetManager.EXTRA_APPWIDGET_ID,
                     AppWidgetManager.INVALID_APPWIDGET_ID
                 )
-                if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    updateWidget(context, appWidgetManager, appWidgetId, true, defaultLayoutId)
+                if (id != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val mgr = AppWidgetManager.getInstance(context)
+                    WidgetUtils.updateWidget(context, mgr, id, true, defaultLayoutId)
                 }
             }
-            ACTION_TOGGLE_FAVORITE -> {
-                val appWidgetId = intent.getIntExtra(
-                    AppWidgetManager.EXTRA_APPWIDGET_ID,
-                    AppWidgetManager.INVALID_APPWIDGET_ID
-                )
-                val quoteText = intent.getStringExtra(EXTRA_QUOTE_TEXT) ?: ""
-                val quoteFrom = intent.getStringExtra(EXTRA_QUOTE_FROM) ?: ""
-                val category = intent.getStringExtra(EXTRA_QUOTE_CATEGORY) ?: ""
-                val quote = com.yiyanweiding.app.model.Quote(quoteText, quoteFrom, category)
-                FavoritesManager.toggleFavorite(quote)
-                if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    updateWidget(context, appWidgetManager, appWidgetId, false, defaultLayoutId)
+            WidgetUtils.ACTION_TOGGLE_FAVORITE -> {
+                val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                val text = intent.getStringExtra(WidgetUtils.EXTRA_QUOTE_TEXT) ?: ""
+                val from = intent.getStringExtra(WidgetUtils.EXTRA_QUOTE_FROM) ?: ""
+                val cat = intent.getStringExtra(WidgetUtils.EXTRA_QUOTE_CATEGORY) ?: ""
+                val quote = com.yiyanweiding.app.model.Quote(text, from, cat)
+                com.yiyanweiding.app.model.FavoritesManager.toggleFavorite(quote)
+                if (id != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val mgr = AppWidgetManager.getInstance(context)
+                    WidgetUtils.updateWidget(context, mgr, id, false, defaultLayoutId)
                 }
             }
-            ACTION_COPY_QUOTE -> {
-                val quoteText = intent.getStringExtra(EXTRA_QUOTE_TEXT) ?: ""
+            WidgetUtils.ACTION_COPY_QUOTE -> {
+                val text = intent.getStringExtra(WidgetUtils.EXTRA_QUOTE_TEXT) ?: ""
+                val clip = android.content.ClipData.newPlainText("quote", text)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("quote", quoteText)
                 clipboard.setPrimaryClip(clip)
             }
         }
@@ -71,157 +60,11 @@ abstract class YiYanWidgetProvider(
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        scheduleNextRefresh(context)
+        WidgetUtils.scheduleNextRefresh(context)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        cancelScheduledRefresh(context)
-    }
-
-    companion object {
-        const val ACTION_NEXT_QUOTE = "com.yiyanweiding.action.NEXT_QUOTE"
-        const val ACTION_TOGGLE_FAVORITE = "com.yiyanweiding.action.TOGGLE_FAVORITE"
-        const val ACTION_COPY_QUOTE = "com.yiyanweiding.action.COPY_QUOTE"
-        const val EXTRA_QUOTE_TEXT = "extra_quote_text"
-        const val EXTRA_QUOTE_FROM = "extra_quote_from"
-        const val EXTRA_QUOTE_CATEGORY = "extra_quote_category"
-        const val PREFS_NAME = "yiyan_widget_state"
-        const val KEY_CURRENT_INDEX = "current_index_"
-    }
-
-    // --- Instance helpers ---
-
-    private fun updateWidget(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetId: Int,
-        advanceToNext: Boolean,
-        layoutId: Int
-    ) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        var currentIndex = prefs.getInt(KEY_CURRENT_INDEX + appWidgetId, -1)
-
-        if (currentIndex < 0 || advanceToNext) {
-            if (currentIndex < 0) {
-                val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-                currentIndex = today % QuoteDatabase.size()
-            } else {
-                currentIndex = (currentIndex + 1) % QuoteDatabase.size()
-            }
-            prefs.edit().putInt(KEY_CURRENT_INDEX + appWidgetId, currentIndex).apply()
-        }
-
-        val quote = QuoteDatabase.getQuoteByIndex(currentIndex)
-        val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-        val dayNumber = dayOfYear
-
-        val views = RemoteViews(context.packageName, layoutId)
-
-        // Set quote text
-        views.setTextViewText(R.id.widget_quote_text, quote.text)
-
-        // Set day counter
-        views.setTextViewText(R.id.widget_day_counter, "Day $dayNumber")
-
-        // Set background color
-        val bgColor = ColorUtils.getDominantColor(dayOfYear)
-        views.setInt(R.id.widget_root, "setBackgroundColor", bgColor)
-
-        // Click to next quote
-        val nextIntent = Intent(context, this.javaClass).apply {
-            action = ACTION_NEXT_QUOTE
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        }
-        val nextPendingIntent = PendingIntent.getBroadcast(
-            context,
-            appWidgetId,
-            nextIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.widget_quote_text, nextPendingIntent)
-        views.setOnClickPendingIntent(R.id.widget_root, nextPendingIntent)
-
-        // For large widget: favorite button and copy button
-        if (layoutId == R.layout.widget_large) {
-            val isFav = FavoritesManager.isFavorite(quote.text)
-            views.setImageViewResource(
-                R.id.widget_favorite_btn,
-                if (isFav) R.drawable.ic_favorite_filled
-                else R.drawable.ic_favorite_border
-            )
-
-            val favIntent = Intent(context, this.javaClass).apply {
-                action = ACTION_TOGGLE_FAVORITE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra(EXTRA_QUOTE_TEXT, quote.text)
-                putExtra(EXTRA_QUOTE_FROM, quote.from)
-                putExtra(EXTRA_QUOTE_CATEGORY, quote.category)
-            }
-            val favPendingIntent = PendingIntent.getBroadcast(
-                context,
-                appWidgetId + 1000,
-                favIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_favorite_btn, favPendingIntent)
-
-            val copyIntent = Intent(context, this.javaClass).apply {
-                action = ACTION_COPY_QUOTE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra(EXTRA_QUOTE_TEXT, quote.text)
-            }
-            val copyPendingIntent = PendingIntent.getBroadcast(
-                context,
-                appWidgetId + 2000,
-                copyIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_copy_btn, copyPendingIntent)
-        }
-
-        appWidgetManager.updateAppWidget(appWidgetId, views)
-    }
-
-    private fun scheduleNextRefresh(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, BootReceiver::class.java).apply {
-            action = Intent.ACTION_DATE_CHANGED
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val calendar = Calendar.getInstance().apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 5)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        alarmManager.setInexactRepeating(
-            AlarmManager.RTC,
-            calendar.timeInMillis,
-            AlarmManager.INTERVAL_DAY,
-            pendingIntent
-        )
-    }
-
-    private fun cancelScheduledRefresh(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, BootReceiver::class.java).apply {
-            action = Intent.ACTION_DATE_CHANGED
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager.cancel(pendingIntent)
+        WidgetUtils.cancelScheduledRefresh(context)
     }
 }
