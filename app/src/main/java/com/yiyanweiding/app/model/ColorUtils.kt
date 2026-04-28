@@ -53,7 +53,7 @@ object ColorUtils {
     fun getWeatherBackgroundStart(context: android.content.Context): Int {
         val weather = WeatherManager.getWeather(context)
         if (weather != null) {
-            return WeatherManager.getWeatherColors(weather).backgroundStart
+            return WeatherManager.getWeatherColors(context).backgroundStart
         }
         val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
         return getDominantColor(dayOfYear)
@@ -62,7 +62,7 @@ object ColorUtils {
     fun getWeatherAccentColor(context: android.content.Context): Int {
         val weather = WeatherManager.getWeather(context)
         if (weather != null) {
-            return WeatherManager.getWeatherColors(weather).accentColor
+            return WeatherManager.getWeatherColors(context).accentColor
         }
         return 0xFFFFFFFF.toInt()
     }
