@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.yiyanweiding.app.model.QuoteDatabase
+import com.yiyanweiding.app.model.WeatherManager
 
 /**
  * Receives BOOT_COMPLETED and DATE_CHANGED broadcasts to refresh widgets.
