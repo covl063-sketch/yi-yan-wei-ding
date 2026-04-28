@@ -15,8 +15,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_DATE_CHANGED,
-            Intent.ACTION_TIME_SET -> {
+            Intent.ACTION_DATE_CHANGED -> {
                 // Re-initialize database just in case
                 QuoteDatabase.init(context)
 
