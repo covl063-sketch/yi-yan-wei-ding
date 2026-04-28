@@ -24,24 +24,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
-
-      - name: Sign APK (debug key)
-        run: |
-          echo "Using debug keystore for signing"
-          # Android SDK debug key is used by default
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: yiyan-weiding-release
-          path: app/build/outputs/**/*.apk
+          name: yiyan-weiding-debug
+          path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: app/build/outputs/apk/release/app-release.apk
+          files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true

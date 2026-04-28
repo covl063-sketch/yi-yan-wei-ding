@@ -15,19 +15,10 @@ android {
         versionName = "1.0"
     }
 
-    signingConfigs {
-        debug {
-            v1SigningEnabled = true
-            v2SigningEnabled = true
-        }
-    }
-
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
