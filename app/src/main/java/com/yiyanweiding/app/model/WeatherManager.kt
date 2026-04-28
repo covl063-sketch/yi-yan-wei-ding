@@ -18,10 +18,11 @@ object WeatherManager {
     // TODO: Replace with your own QWeather API key from https://dev.qweather.com
     private const val API_KEY = "f5f689df49a940ea8c7d457b386a6010"
 
-    // Auto city lookup
-    private const val CITY_LOOKUP_URL = "https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s"
+    // Auto city lookup — using known LocationIDs for common cities (from QWeather docs)
+    // Default: Beijing (101010100). Free tier requires a fixed LocationID.
+    private const val DEFAULT_LOCATION_ID = "101010100"
 
-    // Weather API
+    // Weather API — now endpoint (free tier)
     private const val WEATHER_URL = "https://devapi.qweather.com/v7/weather/now?location=%s&key=%s"
 
     private const val PREFS_NAME = "yiyan_weather_cache"
@@ -87,11 +88,9 @@ object WeatherManager {
 
     private fun fetchWeather(context: Context): JSONObject? {
         try {
-            // Step 1: Auto-detect city via IP (QWeather provides this)
-            val cityId = getCityId() ?: return null
+            // Use fixed LocationID (free tier limitation — no auto IP support)
+            val url = URL(String.format(WEATHER_URL, DEFAULT_LOCATION_ID, API_KEY))
 
-            // Step 2: Fetch weather
-            val url = URL(String.format(WEATHER_URL, cityId, API_KEY))
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 5000
             conn.readTimeout = 5000
@@ -110,32 +109,12 @@ object WeatherManager {
         }
     }
 
-    private fun getCityId(): String? {
-        return try {
-            // Try auto IP location via QWeather
-            val url = URL("https://geoapi.qweather.com/v2/city/lookup?location=auto_ip&key=$API_KEY")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            conn.requestMethod = "GET"
-
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val response = reader.readText()
-            reader.close()
-            conn.disconnect()
-
-            val json = JSONObject(response)
-            if (json.optString("code") == "200") {
-                val location = json.getJSONArray("location")
-                if (location.length() > 0) {
-                    location.getJSONObject(0).optString("id")
-                } else null
-            } else null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+    /**
+     * Returns the LocationID for the current city.
+     * Free tier limitation: hardcoded to a known city. Change this to match your location.
+     * Common LocationIDs: 北京=101010100, 上海=101020100, 广州=101280101, 深圳=101280601, 杭州=101210101
+     */
+    fun getCityId(): String = DEFAULT_LOCATION_ID
 
     fun getWeatherType(weatherJson: JSONObject?): WeatherType {
         if (weatherJson == null) return WeatherType.UNKNOWN
