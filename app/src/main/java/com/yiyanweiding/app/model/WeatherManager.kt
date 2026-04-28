@@ -16,7 +16,7 @@ import java.util.Calendar
 object WeatherManager {
 
     // TODO: Replace with your own QWeather API key from https://dev.qweather.com
-    private const val API_KEY = "YOUR_QWEATHER_API_KEY"
+    private const val API_KEY = "f5f689df49a940ea8c7d457b386a6010"
 
     // Auto city lookup
     private const val CITY_LOOKUP_URL = "https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s"
