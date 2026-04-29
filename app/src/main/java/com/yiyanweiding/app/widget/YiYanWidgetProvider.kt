@@ -76,6 +76,12 @@ abstract class YiYanWidgetProvider(
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         WidgetUtils.scheduleNextRefresh(context, this@YiYanWidgetProvider::class.java)
+        // Prime weather data immediately
+        try {
+            android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute {
+                WeatherManager.refresh(context)
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onDisabled(context: Context) {

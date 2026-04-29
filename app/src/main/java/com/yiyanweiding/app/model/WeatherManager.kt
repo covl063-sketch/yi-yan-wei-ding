@@ -55,7 +55,16 @@ object WeatherManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putLong(KEY_TIME, 0L).apply()
         val result = fetchWeatherInternal(context)
-        if (result != null) cacheSimple(context, result)
+        if (result != null) {
+            cacheSimple(context, result)
+        } else {
+            // Retry once after a short delay (network may not be ready)
+            try {
+                Thread.sleep(2000)
+                val retry = fetchWeatherInternal(context)
+                if (retry != null) cacheSimple(context, retry)
+            } catch (_: Exception) {}
+        }
     }
 
     fun getWeather(context: Context): SimpleWeather {
@@ -156,17 +165,17 @@ object WeatherManager {
     private fun classifyCondition(cond: String): WeatherType {
         val c = cond.lowercase().trim()
         return when {
-            c.contains("sunny") || c.contains("clear") -> WeatherType.SUNNY
-            c.contains("partly cloudy") -> WeatherType.CLOUDY
-            c.contains("cloudy") || c.contains("overcast") -> WeatherType.OVERCAST
-            c.contains("thund") || c.contains("storm") -> WeatherType.THUNDERSTORM
-            c.contains("heavy rain") || c.contains("torrential") -> WeatherType.HEAVY_RAIN
-            c.contains("moderate rain") -> WeatherType.MODERATE_RAIN
-            c.contains("light rain") || c.contains("drizzle") || c.contains("shower") -> WeatherType.LIGHT_RAIN
-            c.contains("rain") -> WeatherType.RAIN
-            c.contains("snow") || c.contains("sleet") || c.contains("blizzard") || c.contains("ice") -> WeatherType.SNOW
-            c.contains("fog") || c.contains("mist") || c.contains("haze") -> WeatherType.FOG
-            c.contains("wind") -> WeatherType.WINDY
+            c.contains("sunny") || c.contains("clear") || c.contains("晴") -> WeatherType.SUNNY
+            c.contains("partly cloudy") || c.contains("多云") -> WeatherType.CLOUDY
+            c.contains("cloudy") || c.contains("overcast") || c.contains("阴") -> WeatherType.OVERCAST
+            c.contains("thund") || c.contains("storm") || c.contains("雷阵雨") || c.contains("雷") -> WeatherType.THUNDERSTORM
+            c.contains("heavy rain") || c.contains("torrential") || c.contains("大雨") || c.contains("暴雨") -> WeatherType.HEAVY_RAIN
+            c.contains("moderate rain") || c.contains("中雨") -> WeatherType.MODERATE_RAIN
+            c.contains("light rain") || c.contains("drizzle") || c.contains("shower") || c.contains("小雨") || c.contains("阵雨") -> WeatherType.LIGHT_RAIN
+            c.contains("rain") || c.contains("雨") -> WeatherType.RAIN
+            c.contains("snow") || c.contains("sleet") || c.contains("blizzard") || c.contains("ice") || c.contains("雪") || c.contains("冰") -> WeatherType.SNOW
+            c.contains("fog") || c.contains("mist") || c.contains("haze") || c.contains("雾") || c.contains("霾") -> WeatherType.FOG
+            c.contains("wind") || c.contains("风") -> WeatherType.WINDY
             else -> WeatherType.UNKNOWN
         }
     }

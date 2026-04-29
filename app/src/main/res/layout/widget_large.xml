@@ -61,22 +61,26 @@
                 android:layout_width="12dp"
                 android:layout_height="match_parent" />
 
-            <ImageButton
+            <ImageView
                 android:id="@+id/widget_favorite_btn"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@android:drawable/btn_star"
                 android:background="@null"
                 android:scaleType="fitCenter"
+                android:clickable="true"
+                android:focusable="true"
                 android:contentDescription="favorite" />
 
-            <ImageButton
+            <ImageView
                 android:id="@+id/widget_copy_btn"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@android:drawable/ic_menu_edit"
                 android:background="@null"
                 android:scaleType="fitCenter"
+                android:clickable="true"
+                android:focusable="true"
                 android:contentDescription="copy" />
 
         </LinearLayout>

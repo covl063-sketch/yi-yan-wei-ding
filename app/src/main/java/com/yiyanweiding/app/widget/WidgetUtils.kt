@@ -21,9 +21,9 @@ object WidgetUtils {
     private const val PREFS_CITY = "weather_city"
     private const val DAILY_REFRESH_HOUR = 0 // UTC 0 = BJT 8
 
-    private const val ACTION_NEXT_QUOTE = "com.yiyanweiding.app.NEXT_QUOTE"
-    private const val ACTION_TOGGLE_FAVORITE = "com.yiyanweiding.app.TOGGLE_FAVORITE"
-    private const val ACTION_COPY_QUOTE = "com.yiyanweiding.app.COPY_QUOTE"
+    const val ACTION_NEXT_QUOTE = "com.yiyanweiding.app.NEXT_QUOTE"
+    const val ACTION_TOGGLE_FAVORITE = "com.yiyanweiding.app.TOGGLE_FAVORITE"
+    const val ACTION_COPY_QUOTE = "com.yiyanweiding.app.COPY_QUOTE"
     const val ACTION_REFRESH_WEATHER = "com.yiyanweiding.app.REFRESH_WEATHER"
     const val EXTRA_CITY = "weather_city"
 

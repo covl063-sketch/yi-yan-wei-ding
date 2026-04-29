@@ -21,7 +21,7 @@ class WidgetUpdateService : IntentService("WidgetUpdateService") {
         )) {
             val ids = appWidgetManager.getAppWidgetIds(ComponentName(this, providerClass))
             for (widgetId in ids) {
-                WidgetUtils.updateWidget(this, appWidgetManager, widgetId, false, layoutId, providerClass)
+                WidgetUtils.updateWidget(this, appWidgetManager, widgetId, layoutId, providerClass)
             }
         }
     }
